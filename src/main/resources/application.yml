@@ -3,6 +3,7 @@ server:
 spring:
   application:
     name: config-server
+    version: "@project.version@"
   cloud:
     config:
       server:
@@ -10,3 +11,7 @@ spring:
           uri: https://github.com/josephmn/service-configuration.git
         clone-on-start: true
         #searchPaths: msv-customer
+  output:
+    ansi:
+      enabled: ALWAYS
+      #-Dspring.output.ansi.enabled=always
