@@ -18,3 +18,11 @@ ENTRYPOINT ["java", "-jar", "config-server-1.0.0.jar"]
 
 # Ejecutar imagen docker
 # docker run -d -p 8888:8888 --name config-server config-server:1.0
+
+# Creando una red de Docker
+# docker network create azure-net
+# docker run -p 8888:8888 --name config-server --network=azure-net config-server:1.0    #si quieres ejecutar en modo desacoplado
+# docker run -d -p 8888:8888 --name config-server --network=azure-net config-server:1.0     #ejecución simple con network
+
+# Verificar conexiones en la red Docker
+# docker network inspect azure-net
