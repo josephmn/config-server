@@ -1,0 +1,21 @@
+apiVersion: v1 # Indica la versión de la API de Kubernetes que se está utilizando para crear este recurso.
+kind: Service # Define el tipo de recurso que estás creando.
+metadata: #  Contiene la información básica sobre el recurso.
+  name: config-server-service # Es el nombre del Service en Kubernetes. Este nombre se usará para referenciar este recurso en otros componentes o manifestos.
+spec: # Define la configuración específica del Service.
+  selector: # Este selector se usa para encontrar los Pods que este Service gestionará.
+    # El selector debe coincidir con la etiqueta que los Pods tienen (que está definida en el manifiesto del Deployment anterior).
+    # Así, este Service enviará tráfico a los Pods que tengan la etiqueta app: config-server.
+    app: config-server
+  ports: # Define cómo y en qué puertos el Service redirigirá el tráfico.
+    - protocol: TCP # Especifica el protocolo de red a usar, en este caso, TCP, que es el más común para servicios web.
+      port: 8888 # Especifica el puerto que expone el Service dentro del clúster. Otros Pods y servicios pueden enviar tráfico a este Service a través del puerto 8888.
+      targetPort: 8888 # Este es el puerto dentro del contenedor que recibe el tráfico. En este caso, se redirige el tráfico al puerto 8888 dentro de los Pods que ejecutan el config-server.
+      # Se usa cuando el tipo de Service es NodePort (opcional). Si habilitas esta línea y defines un nodePort (como 32000),
+      # Kubernetes expondrá este puerto en cada nodo del clúster, permitiendo el acceso desde fuera del clúster (pero sin balanceo
+      # de carga completo).
+      # nodePort: 32000
+  type: LoadBalancer
+  # Define el tipo de Service. El tipo LoadBalancer se utiliza típicamente en entornos de nube (como AWS, GCP, Azure).
+  # Kubernetes creará automáticamente un balanceador de carga en el proveedor de la nube, y el tráfico externo será dirigido
+  # a los Pods correspondientes a través de este balanceador.

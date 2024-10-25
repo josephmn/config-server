@@ -1,0 +1,19 @@
+apiVersion: apps/v1 # Define la versión de la API de Kubernetes que se usará para este recurso. apps/v1 es la versión adecuada para los despliegues Deployment.
+kind: Deployment # Define el tipo de recurso que estás creando.
+metadata:
+  name: config-server # Asignación de un nombre
+spec: # Definición específica del deployment
+  replicas: 1 # Define cuántas instancias (réplicas) de este contenedor deben estar corriendo.
+  selector: # Define el criterio que Kubernetes usará para identificar los Pods gestionados por este Deployment
+    matchLabels: # Se usa para emparejar Pods basados en etiquetas. app: config-server asegura que Kubernetes seleccione solo los Pods que tengan esta etiqueta.
+      app: config-server
+  template: # Describe cómo se creará cada Pod que representa el Deployment.
+    metadata: # Asigna la etiqueta app: config-server a cada Pod creado por este Deployment. Esta etiqueta debe coincidir con el matchLabels en el selector, de modo que Kubernetes pueda identificar los Pods que pertenecen a este Deployment.
+      labels:
+        app: config-server
+    spec: # Describe la configuración de los contenedores dentro del Pod.
+      containers: # Una lista de contenedores que se ejecutarán en el Pod.
+        - name: config-server # Asigna el nombre config-server al contenedor. Este nombre es una referencia dentro del Pod y ayuda a identificar el contenedor.
+          image: config-server:1.0  # Define la imagen de contenedor que se usará. En este caso, es config-server:1.0, que debe reemplazarse con el nombre y la etiqueta de la imagen que tengas en tu registro (local o en la nube).
+          ports: # Lista de puertos que el contenedor expone.
+            - containerPort: 8888 # Define el puerto 8888 dentro del contenedor, que probablemente será el puerto en el que tu aplicación escucha solicitudes. Kubernetes usará este puerto para redirigir el tráfico hacia el contenedor.
