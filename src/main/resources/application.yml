@@ -9,9 +9,19 @@ spring:
       server:
         git:
           uri: https://github.com/josephmn/service-configuration.git
-        clone-on-start: true
+          default-label: main  # o master, según tu rama principal
+          # search-paths: config  # carpeta donde están tus archivos de configuración
+          clone-on-start: true
+          force-pull: true
+          timeout: 5
+          refresh-rate: 30  # Tiempo en segundos para buscar cambios
         #searchPaths: msv-customer
   output:
     ansi:
       enabled: ALWAYS
       #-Dspring.output.ansi.enabled=always
+management:
+  endpoints:
+    web:
+      exposure:
+        include: refresh,health,webhook
