@@ -9,9 +9,12 @@ RUN mvn package -DskipTests
 # Etapa final
 FROM openjdk:17-jdk-slim
 WORKDIR /app
-COPY --from=build /app/target/config-server-1.0.0.jar ./config-server-1.0.0.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "config-server-1.0.0.jar"]
+ARG NAME_APP
+ARG JAR_VERSION
+COPY --from=build /app/target/${NAME_APP}-${JAR_VERSION}.jar app.jar
+# Puerto de la aplicación (8888), se recomienda que sea el mismo que se defina al ejecutar el contenedor en docker
+EXPOSE 8888
+ENTRYPOINT ["java", "-jar", "app.jar"]
 
 # Construir imagen docker
 # docker build -t config-server:1.0 .

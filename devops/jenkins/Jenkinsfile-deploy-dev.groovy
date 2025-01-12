@@ -11,22 +11,31 @@ pipeline {
     environment {
         NAME_APP = 'config-server'
         SCANNER_HOME = tool 'sonar-scanner'
+        CONTAINER_PORT = '8888'
+        HOST_PORT = '8888'
         // NVD_API_KEY = credentials('NVD_API_KEY') // Carga la API Key desde las credenciales de Jenkins
         NETWORK = 'azure-net'
     }
 
     parameters {
-        booleanParam(name: 'SONARQUBE', defaultValue: true, description: '¿Ejecutar análisis de SonarQube?')
-        booleanParam(name: 'OWASP', defaultValue: true, description: '¿Ejecutar análisis de OWASP?')
-        booleanParam(name: 'DOCKER', defaultValue: true, description: '¿Desplegar y Ejecutar APP en DOCKER?')
+        booleanParam(name: 'SONARQUBE', defaultValue: false, description: 'Ejecutar analisis de SonarQube?')
+        booleanParam(name: 'OWASP', defaultValue: false, description: 'Ejecutar analisis de OWASP?')
+        booleanParam(name: 'DOCKER', defaultValue: true, description: 'Desplegar y Ejecutar APP en DOCKER?')
+        booleanParam(name: 'NOTIFICATION', defaultValue: true, description: 'Deseas notificar por correo?')
+        string(name: 'CORREO', defaultValue: 'josephcarlos.jcmn@gmail.com', description: 'Deseas notificar por correo a los siguientes correos?')
     }
 
     stages {
         stage('Compile') {
             steps {
-                echo "######################## : ======> EJECUTANDO COMPILE..."
-                // Usar 'bat' para ejecutar comandos en Windows, para Linux usar 'sh'
-                bat 'mvn clean compile'
+                script {
+                    if (params.NOTIFICATION) {
+                        notifyJob('JOB Jenkins', params.CORREO)
+                    }
+                    echo "######################## : ======> EJECUTANDO COMPILE..."
+                    // Usar 'bat' para ejecutar comandos en Windows, para Linux usar 'sh'
+                    bat 'mvn clean compile'
+                }
             }
         }
 
@@ -93,22 +102,34 @@ pipeline {
 
         stage('Docker Build and Run') {
             when {
-                expression { params.DOCKER } // Ejecutar sólo si el parámetro es verdadero
+                expression { params.DOCKER }
             }
             steps {
                 script {
                     echo "######################## : ======> EJECUTANDO DOCKER BUILD AND RUN..."
-                    // Nombre de la imagen Docker
-                    // def containerName = "config-server"
-                    // def imageName = "config-server"
-                    // Eliminar el contenedor existente si ya está en ejecución
-                    bat "docker rm -f ${NAME_APP} || true"
-                    // Eliminar la imagen existente si ya existe
-                    bat "docker rmi -f ${NAME_APP} || true"
-                    // Construir la imagen Docker usando el Dockerfile en la raíz del proyecto
-                    bat "docker build -t ${NAME_APP}:1.0 ."
-                    // Ejecutar el contenedor de la imagen recién creada
-                    bat "docker run -d --name ${NAME_APP} -p 8888:8888 --network=${NETWORK} ${NAME_APP}:1.0"
+
+                    // Obtener la versión en Windows usando un archivo temporal
+                    bat '''
+                        mvn help:evaluate -Dexpression=project.version -q -DforceStdout > version.txt
+                    '''
+                    def version = readFile('version.txt').trim()
+                    // Remover -SNAPSHOT si existe, solo para PRD, en desarrollo no se quita
+                    // version = version.replaceAll("-SNAPSHOT", "")
+
+                    echo "######################## : ======> VERSIÓN A DESPLEGAR: ${version}"
+                    echo "######################## : ======> APLICATIVO + VERSION: ${NAME_APP}:${version}"
+                    // Usar la versión capturada para los comandos Docker
+                    bat """
+                        echo "Limpiando contenedores e imágenes anteriores..."
+                        docker rm -f ${NAME_APP} || true
+                        docker rmi -f ${NAME_APP}:${version} || true
+
+                        echo "Construyendo nueva imagen con versión ${version}..."
+                        docker build --build-arg NAME_APP=${NAME_APP} --build-arg JAR_VERSION=${version} -t ${NAME_APP}:${version} .
+
+                        echo "Desplegando contenedor..."
+                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ${NAME_APP}:${version}
+                    """
                 }
             }
         }
@@ -117,14 +138,16 @@ pipeline {
     post {
         success {
             script {
-                if (params.SEND_SUCCESS_NOTIFICATION) {
-                    notifyByMail('SUCCESS', 'josephcarlos.jcmn@gmail.com')
+                if (params.NOTIFICATION) {
+                    notifyByMail('SUCCESS', params.CORREO)
                 }
             }
         }
         failure {
             script {
-                notifyByMail('FAIL', 'josephcarlos.jcmn@gmail.com')
+                if (params.NOTIFICATION) {
+                    notifyByMail('FAIL', params.CORREO)
+                }
             }
         }
     }
