@@ -11,15 +11,22 @@ pipeline {
     environment {
         NAME_APP = 'config-server'
         SCANNER_HOME = tool 'sonar-scanner'
+        CONTAINER_PORT = '8888'
+        HOST_PORT = '8888'
         NETWORK = 'azure-net'
-        GITHUB_TOKEN = credentials('github-token') // Añadido para GitHub Releases
+        GITHUB_TOKEN = credentials('GitHub_Access_SSH') // Añadido para GitHub Releases
+        GIT_COMMITTER_EMAIL = 'josephcarlos.jcmn@gmail.com'
+        GIT_COMMITTER_NAME = 'Joseph Magallanes'
+        // Añadimos configuración de Git para el release
+        RELEASE_BRANCH = 'develop'
+        GIT_CREDENTIALS_ID = 'GitHub_Access'
     }
 
     parameters {
-        booleanParam(name: 'DOCKER', defaultValue: true, description: '¿Desplegar y Ejecutar APP en DOCKER?')
-        booleanParam(name: 'NOTIFICATION', defaultValue: true, description: '¿Deseas notificar por correo?')
-        booleanParam(name: 'CREATE_RELEASE', defaultValue: true, description: '¿Crear un nuevo release?')
-        string(name: 'CORREO', defaultValue: 'josephcarlos.jcmn@gmail.com', description: '¿Deseas notificar por correo a los siguientes correos?')
+        booleanParam(name: 'CREATE_RELEASE', defaultValue: true, description: 'Crear un nuevo release?')
+        booleanParam(name: 'DOCKER', defaultValue: true, description: 'Desplegar y Ejecutar APP en DOCKER?')
+        booleanParam(name: 'NOTIFICATION', defaultValue: false, description: 'Deseas notificar por correo?')
+        string(name: 'CORREO', defaultValue: 'josephcarlos.jcmn@gmail.com', description: 'Deseas notificar por correo a los siguientes correos?')
     }
 
     stages {
@@ -40,8 +47,29 @@ pipeline {
                 expression { params.CREATE_RELEASE }
             }
             steps {
-                echo "######################## : ======> PREPARANDO RELEASE..."
-                bat 'mvn release:prepare -B'
+                script {
+//                    withCredentials([usernamePassword(credentialsId: 'GitHub_Access_SSH', variable: 'GITHUB_TOKEN')]) {
+                        echo "######################## : ======> PREPARANDO RELEASE..."
+
+                        echo "######################## : ======> AGREGANDO DIRECTORIO SEGURO... ${WORKSPACE}"
+                        // Configuración de Git
+                        bat """
+                            git config --global --add safe.directory "${WORKSPACE}"
+                        """
+
+                        echo "######################## : ======> LISTAR CONFIGURACION..."
+                        bat "git config --global --list"
+
+                        // Asegurar que estamos en la rama correcta
+                        bat "git checkout ${RELEASE_BRANCH}"
+                        bat "git pull origin ${RELEASE_BRANCH}"
+
+                        bat "git remote set-url origin git@github.com:josephmn/config-server.git"
+
+                        // Preparar el release
+                        bat 'mvn release:prepare -B'
+//                    }
+                }
             }
         }
 
@@ -114,22 +142,29 @@ pipeline {
             steps {
                 script {
                     echo "######################## : ======> EJECUTANDO DOCKER BUILD AND RUN..."
-                    // Obtener la versión actual del proyecto
-                    def version = bat(script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout', returnStdout: true).trim()
-                    // Remover -SNAPSHOT si existe
-                    version = version.replaceAll("-SNAPSHOT", "")
+
+                    // Obtener la versión en Windows usando un archivo temporal
+                    bat '''
+                        mvn help:evaluate -Dexpression=project.version -q -DforceStdout > version.txt
+                    '''
+                    def version = readFile('version.txt').trim()
+                    // Remover -SNAPSHOT si existe, solo para PRD, en desarrollo no se quita
+                     version = version.replaceAll("-SNAPSHOT", "")
 
                     echo "######################## : ======> VERSIÓN A DESPLEGAR: ${version}"
+                    echo "######################## : ======> APLICATIVO + VERSION: ${NAME_APP}:${version}"
+                    // Usar la versión capturada para los comandos Docker
+                    bat """
+                        echo "Limpiando contenedores e imágenes anteriores..."
+                        docker rm -f ${NAME_APP} || true
+                        docker rmi -f ${NAME_APP}:${version} || true
 
-                    bat "docker rm -f ${NAME_APP} || true"
-                    bat "docker rmi -f ${NAME_APP}:${version} || true"
-                    // Usar la versión en la construcción de la imagen
-                    bat "docker build -t ${NAME_APP}:${version} ."
-                    // Usar la versión al ejecutar el contenedor
-                    bat "docker run -d --name ${NAME_APP} -p 8888:8888 --network=${NETWORK} ${NAME_APP}:${version}"
+                        echo "Construyendo nueva imagen con versión ${version}..."
+                        docker build --build-arg NAME_APP=${NAME_APP} --build-arg JAR_VERSION=${version} -t ${NAME_APP}:${version} .
 
-                    // Opcional: también crear un tag 'latest'
-                    bat "docker tag ${NAME_APP}:${version} ${NAME_APP}:latest"
+                        echo "Desplegando contenedor..."
+                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ${NAME_APP}:${version}
+                    """
                 }
             }
         }
