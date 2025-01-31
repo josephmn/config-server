@@ -10,18 +10,18 @@ pipeline {
 
     environment {
         NAME_APP = 'config-server'
+        NAME_IMG_DOCKER = 'config-server-dev'
         SCANNER_HOME = tool 'sonar-scanner'
-        CONTAINER_PORT = '8888'
-        HOST_PORT = '8888'
-        // NVD_API_KEY = credentials('NVD_API_KEY') // Carga la API Key desde las credenciales de Jenkins
-        NETWORK = 'azure-net'
+        CONTAINER_PORT = '8886'
+        HOST_PORT = '8886'
+        NETWORK = 'azure-net-dev'
     }
 
     parameters {
         booleanParam(name: 'SONARQUBE', defaultValue: false, description: 'Ejecutar analisis de SonarQube?')
         booleanParam(name: 'OWASP', defaultValue: false, description: 'Ejecutar analisis de OWASP?')
         booleanParam(name: 'DOCKER', defaultValue: true, description: 'Desplegar y Ejecutar APP en DOCKER?')
-        booleanParam(name: 'NOTIFICATION', defaultValue: true, description: 'Deseas notificar por correo?')
+        booleanParam(name: 'NOTIFICATION', defaultValue: false, description: 'Deseas notificar por correo?')
         string(name: 'CORREO', defaultValue: 'josephcarlos.jcmn@gmail.com', description: 'Deseas notificar por correo a los siguientes correos?')
     }
 
@@ -119,16 +119,24 @@ pipeline {
                     echo "######################## : ======> VERSIÓN A DESPLEGAR: ${version}"
                     echo "######################## : ======> APLICATIVO + VERSION: ${NAME_APP}:${version}"
                     // Usar la versión capturada para los comandos Docker
+
+                    echo "=========> Eliminando contenedores con nombre: ${NAME_APP}..."
                     bat """
-                        echo "Limpiando contenedores e imágenes anteriores..."
-                        docker rm -f ${NAME_APP} || true
-                        docker rmi -f ${NAME_APP}:${version} || true
+                        for /f "tokens=*" %%i in ('docker ps -q --filter "name=${NAME_APP}"') do docker stop %%i
+                        for /f "tokens=*" %%i in ('docker ps -a -q --filter "name=${NAME_APP}"') do docker rm %%i
+                    """
 
-                        echo "Construyendo nueva imagen con versión ${version}..."
-                        docker build --build-arg NAME_APP=${NAME_APP} --build-arg JAR_VERSION=${version} -t ${NAME_APP}:${version} .
+                    echo "=========> Eliminando imagenes con nombre: ${NAME_APP}..."
+                    bat """
+                        for /f "tokens=*" %%i in ('docker images -q --filter "reference=${NAME_APP}*"') do docker rmi %%i
+                    """
 
-                        echo "Desplegando contenedor..."
-                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ${NAME_APP}:${version}
+                    bat """
+                        echo "=========> Construyendo nueva imagen con versión ${version}..."
+                        docker build --build-arg NAME_APP=${NAME_APP} --build-arg JAR_VERSION=${version} -t ${NAME_IMG_DOCKER}:${version} .
+
+                        echo "=========> Desplegando el contenedor: ${NAME_APP}..."
+                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} --env SERVER_PORT=${HOST_PORT} ${NAME_IMG_DOCKER}:${version}
                     """
                 }
             }
