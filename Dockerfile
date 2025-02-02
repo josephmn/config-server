@@ -12,7 +12,7 @@ WORKDIR /app
 ARG NAME_APP
 ARG JAR_VERSION
 COPY --from=build /app/target/${NAME_APP}-${JAR_VERSION}.jar app.jar
-# Puerto de la aplicación (8888), se recomienda que sea el mismo que se defina al ejecutar el contenedor en docker
+# Puerto de la aplicacion (8888), se recomienda que sea el mismo que se defina al ejecutar el contenedor en docker
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
 

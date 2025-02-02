@@ -25,7 +25,6 @@
 		</developer>
 	</developers>
 	<properties>
-		<revision>1.0.0-SNAPSHOT</revision>
 		<java.version>17</java.version>
 		<spring-cloud.version>2023.0.3</spring-cloud.version>
 		<maven.release.plugin.version>3.0.1</maven.release.plugin.version>
@@ -73,7 +72,7 @@
 				<artifactId>maven-release-plugin</artifactId>
 				<version>${maven.release.plugin.version}</version>
 				<configuration>
-					<tagNameFormat>v@{project.version}</tagNameFormat>
+					<tagNameFormat>@{project.version}</tagNameFormat>
 					<autoVersionSubmodules>true</autoVersionSubmodules>
 					<releaseProfiles>release</releaseProfiles>
 					<goals>install</goals>

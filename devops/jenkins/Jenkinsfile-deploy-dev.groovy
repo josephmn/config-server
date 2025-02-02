@@ -18,7 +18,7 @@ pipeline {
     }
 
     stages {
-        stage('Compile') {
+        stage('Compile Repository') {
             steps {
                 script {
                     if (params.NOTIFICATION) {
@@ -75,18 +75,21 @@ pipeline {
         }
 
         stage('Creating Network for Docker') {
+            when {
+                expression { params.DOCKER }
+            }
             steps {
                 script {
-                    echo "######################## : ======> EJECUTANDO CREACIÓN DE RED PARA DOCKER..."
+                    echo "######################## : ======> EJECUTANDO CREACION DE RED PARA DOCKER..."
                     def networkExists = bat(
                             script: "docker network ls | findstr ${NETWORK}",
                             returnStatus: true
                     )
                     if (networkExists != 0) {
-                        echo "######################## : ======> La red '${NETWORK}' no existe. Creándola..."
+                        echo "=========> La red '${NETWORK}' no existe. Creándola..."
                         bat "docker network create --attachable ${NETWORK}"
                     } else {
-                        echo "######################## : ======> La red '${NETWORK}' ya existe. No es necesario crearla."
+                        echo "=========> La red '${NETWORK}' ya existe. No es necesario crearla."
                     }
                 }
             }
@@ -108,20 +111,51 @@ pipeline {
                     // Remover -SNAPSHOT si existe, solo para PRD, en desarrollo no se quita
                     // version = version.replaceAll("-SNAPSHOT", "")
 
-                    echo "######################## : ======> VERSIÓN A DESPLEGAR: ${version}"
-                    echo "######################## : ======> APLICATIVO + VERSION: ${NAME_APP}:${version}"
-                    // Usar la versión capturada para los comandos Docker
+                    // Verificar si existe el contenedor
+                    def containerExists = bat(
+                            script: "@docker ps -a --format '{{.Names}}' | findstr /i \"${NAME_APP}\"",
+                            returnStatus: true
+                    ) == 0
 
-                    echo "=========> Eliminando contenedores con nombre: ${NAME_APP}..."
-                    bat """
-                        for /f "tokens=*" %%i in ('docker ps -q --filter "name=${NAME_APP}"') do docker stop %%i
-                        for /f "tokens=*" %%i in ('docker ps -a -q --filter "name=${NAME_APP}"') do docker rm %%i
-                    """
+                    // Verificar si existe la imagen
+                    def imageExists = bat(
+                            script: "@docker images ${NAME_IMG_DOCKER} --format '{{.Repository}}' | findstr /i \"${NAME_IMG_DOCKER}\"",
+                            returnStatus: true
+                    ) == 0
 
-                    echo "=========> Eliminando imagenes con nombre: ${NAME_APP}..."
-                    bat """
-                        for /f "tokens=*" %%i in ('docker images -q --filter "reference=${NAME_APP}*"') do docker rmi %%i
-                    """
+                    if (containerExists || imageExists) {
+                        echo "=========> Se encontraron recursos existentes, procediendo a limpiarlos..."
+
+                        if (containerExists) {
+                            echo "=========> Eliminando contenedor existente: ${NAME_APP}"
+                            bat "docker stop ${NAME_APP}"
+                            bat "docker rm ${NAME_APP}"
+                        }
+
+                        if (imageExists) {
+                            echo "=========> Eliminando imagen existente: ${NAME_IMG_DOCKER}"
+                            bat "docker rmi ${NAME_IMG_DOCKER}:${version}"
+                        }
+                    } else {
+                        echo "=========> No se encontraron recursos existentes, procediendo con el despliegue..."
+                    }
+
+                    echo "=========> VERSION A DESPLEGAR: ${version}"
+                    echo "=========> APLICATIVO + VERSION: ${NAME_APP}:${version}"
+
+//                    echo "=========> Eliminando contenedores con nombre: ${NAME_APP}..."
+//                    bat """
+//                        for /F "tokens=*" %%i in ('docker ps -q --filter "name=${NAME_APP}" || exit 0') do @if not "%%i"=="" docker stop %%i
+//                    """
+//
+//                    bat """
+//                        for /F "tokens=*" %%i in ('docker ps -a -q --filter "name=${NAME_APP}" || exit 0') do @if not "%%i"=="" docker rm %%i
+//                    """
+//
+//                    echo "=========> Eliminando imagenes con nombre: ${NAME_APP}..."
+//                    bat '''
+//                        for /F "tokens=*" %%i in ('docker images -q --filter "reference=%NAME_APP%*"') do @if not "%%i"=="" docker rmi %%i
+//                    '''
 
                     bat """
                         echo "=========> Construyendo nueva imagen con versión ${version}..."
