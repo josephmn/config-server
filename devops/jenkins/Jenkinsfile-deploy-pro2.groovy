@@ -10,10 +10,13 @@ pipeline {
 
     environment {
         NAME_APP = 'config-server'
+        NAME_IMG_DOCKER = 'config-server-cer'
         CONTAINER_PORT = '8888'
         HOST_PORT = '8888'
         NETWORK = 'azure-net'
         GIT_CREDENTIALS = credentials('PATH_Jenkins')
+        GIT_COMMITTER_NAME = 'josephmn'
+        GIT_COMMITTER_EMAIL = 'josephcarlos.jcmn@gmail.com'
     }
 
     parameters {

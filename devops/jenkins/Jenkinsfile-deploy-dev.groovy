@@ -17,14 +17,6 @@ pipeline {
         NETWORK = 'azure-net-dev'
     }
 
-    parameters {
-        booleanParam(name: 'SONARQUBE', defaultValue: false, description: 'Ejecutar analisis de SonarQube?')
-        booleanParam(name: 'OWASP', defaultValue: false, description: 'Ejecutar analisis de OWASP?')
-        booleanParam(name: 'DOCKER', defaultValue: true, description: 'Desplegar y Ejecutar APP en DOCKER?')
-        booleanParam(name: 'NOTIFICATION', defaultValue: false, description: 'Deseas notificar por correo?')
-        string(name: 'CORREO', defaultValue: 'josephcarlos.jcmn@gmail.com', description: 'Deseas notificar por correo a los siguientes correos?')
-    }
-
     stages {
         stage('Compile') {
             steps {
