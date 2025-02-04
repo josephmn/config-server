@@ -212,7 +212,7 @@ pipeline {
 
                     // Verificar si existe la imagen
                     def imageExists = bat(
-                            script: "@docker images ${NAME_IMG_DOCKER} --format '{{.Repository}}' | findstr /i \"${NAME_IMG_DOCKER}\"",
+                            script: "@docker images ${NAME_IMG_DOCKER}:${NEW_VERSION} --format '{{.Repository}}:{{.Tag}}' | findstr /i \"${NAME_IMG_DOCKER}:${NEW_VERSION}\"",
                             returnStatus: true
                     ) == 0
 
