@@ -9,8 +9,7 @@ pipeline {
     }
 
     environment {
-        NAME_APP = 'config-server'
-        NAME_IMG_DOCKER = 'config-server-dev'
+        NAME_APP = 'config-server-dev'
         SCANNER_HOME = tool 'sonar-scanner'
         CONTAINER_PORT = '8886'
         HOST_PORT = '8886'
@@ -79,8 +78,8 @@ pipeline {
                 expression { params.DOCKER }
             }
             steps {
+                echo "######################## : ======> EJECUTANDO CREACION DE RED PARA DOCKER..."
                 script {
-                    echo "######################## : ======> EJECUTANDO CREACION DE RED PARA DOCKER..."
                     def networkExists = bat(
                             script: "docker network ls | findstr ${NETWORK}",
                             returnStatus: true
@@ -100,8 +99,8 @@ pipeline {
                 expression { params.DOCKER }
             }
             steps {
+                echo "######################## : ======> EJECUTANDO DOCKER BUILD AND RUN..."
                 script {
-                    echo "######################## : ======> EJECUTANDO DOCKER BUILD AND RUN..."
 
                     // Obtener la versión en Windows usando un archivo temporal
                     bat '''
@@ -119,7 +118,7 @@ pipeline {
 
                     // Verificar si existe la imagen
                     def imageExists = bat(
-                            script: "@docker images ${NAME_IMG_DOCKER}:${version} --format '{{.Repository}}:{{.Tag}}' | findstr /i \"${NAME_IMG_DOCKER}:${version}\"",
+                            script: "@docker images ${NAME_APP}:${version} --format '{{.Repository}}:{{.Tag}}' | findstr /i \"${NAME_APP}:${version}\"",
                             returnStatus: true
                     ) == 0
 
@@ -133,8 +132,8 @@ pipeline {
                         }
 
                         if (imageExists) {
-                            echo "=========> Eliminando imagen existente: ${NAME_IMG_DOCKER}"
-                            bat "docker rmi ${NAME_IMG_DOCKER}:${version}"
+                            echo "=========> Eliminando imagen existente: ${NAME_APP}"
+                            bat "docker rmi ${NAME_APP}:${version}"
                         }
                     } else {
                         echo "=========> No se encontraron recursos existentes, procediendo con el despliegue..."
@@ -156,13 +155,16 @@ pipeline {
 //                    bat '''
 //                        for /F "tokens=*" %%i in ('docker images -q --filter "reference=%NAME_APP%*"') do @if not "%%i"=="" docker rmi %%i
 //                    '''
-
+                    def name = NAME_APP.tokenize('-')[0..-2].join('-')
                     bat """
                         echo "=========> Construyendo nueva imagen con versión ${version}..."
-                        docker build --build-arg NAME_APP=${NAME_APP} --build-arg JAR_VERSION=${version} -t ${NAME_IMG_DOCKER}:${version} .
-
+                        docker build --build-arg NAME_APP=${name} --build-arg JAR_VERSION=${version} -t ${NAME_APP}:${version} .
+                    """
+                    bat """
                         echo "=========> Desplegando el contenedor: ${NAME_APP}..."
-                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} --env SERVER_PORT=${HOST_PORT} ${NAME_IMG_DOCKER}:${version}
+                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ^
+                        --env SERVER_PORT=${HOST_PORT} ^
+                        ${NAME_APP}:${version}
                     """
                 }
             }
