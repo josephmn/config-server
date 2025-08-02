@@ -9,8 +9,7 @@ pipeline {
     }
 
     environment {
-        NAME_APP = 'config-server'
-        NAME_IMG_DOCKER = 'config-server-pro'
+        NAME_APP = 'config-server-pro'
         CONTAINER_PORT = '8888'
         HOST_PORT = '8888'
         NETWORK = 'azure-net'
@@ -175,7 +174,7 @@ pipeline {
 
                     // Verificar si existe la imagen
                     def imageExists = bat(
-                            script: "@docker images ${NAME_IMG_DOCKER}:${NEW_VERSION} --format '{{.Repository}}:{{.Tag}}' | findstr /i \"${NAME_IMG_DOCKER}:${NEW_VERSION}\"",
+                            script: "@docker images ${NAME_APP}:${NEW_VERSION} --format '{{.Repository}}:{{.Tag}}' | findstr /i \"${NAME_APP}:${NEW_VERSION}\"",
                             returnStatus: true
                     ) == 0
 
@@ -189,8 +188,8 @@ pipeline {
                         }
 
                         if (imageExists) {
-                            echo "=========> Eliminando imagen existente: ${NAME_IMG_DOCKER}"
-                            bat "docker rmi ${NAME_IMG_DOCKER}:${NEW_VERSION}"
+                            echo "=========> Eliminando imagen existente: ${NAME_APP}"
+                            bat "docker rmi ${NAME_APP}:${NEW_VERSION}"
                         }
                     } else {
                         echo "=========> No se encontraron recursos existentes, procediendo con el despliegue..."
@@ -199,12 +198,16 @@ pipeline {
                     echo "=========> VERSION A DESPLEGAR: ${NEW_VERSION}"
                     echo "=========> APLICATIVO + VERSION: ${NAME_APP}:${NEW_VERSION}"
 
+                    def name = NAME_APP.tokenize('-')[0..-2].join('-')
                     bat """
                         echo "=========> Construyendo nueva imagen con version ${NEW_VERSION}..."
-                        docker build --build-arg NAME_APP=${NAME_APP} --build-arg JAR_VERSION=${NEW_VERSION} -t ${NAME_IMG_DOCKER}:${NEW_VERSION} .
-
+                        docker build --build-arg NAME_APP=${name} --build-arg JAR_VERSION=${NEW_VERSION} -t ${NAME_APP}:${NEW_VERSION} .
+                    """
+                    bat """
                         echo "=========> Desplegando el contenedor: ${NAME_APP}..."
-                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} --env SERVER_PORT=${HOST_PORT} ${NAME_IMG_DOCKER}:${NEW_VERSION}
+                        docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ^
+                        --env SERVER_PORT=${HOST_PORT} ^
+                        ${NAME_APP}:${NEW_VERSION}
                     """
                 }
             }
