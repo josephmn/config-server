@@ -19,6 +19,10 @@ spring:
     ansi:
       enabled: ALWAYS
       #-Dspring.output.ansi.enabled=always
+created:
+  by: Joseph Magallanes
+  email: josephcarlos.jcmn@gmail.com
+  date: 2025-08-01
 #management:
 #  endpoints:
 #    web:

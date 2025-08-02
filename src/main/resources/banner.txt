@@ -16,6 +16,9 @@ ${AnsiColor.BRIGHT_RED}#
 ${spring.application.name} ${spring.application.version}
 Powered by Spring Boot ${spring-boot.version}
 
+Created by: ${created.by} <${created.email}>
+Date: ${created.date}
+
 Java version: ${java.version}
 OS: ${os.name}
 User: ${user.name}
