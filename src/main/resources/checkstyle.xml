@@ -23,17 +23,10 @@
                        @see, @serial, @serialField, @serialData"/>
         </module>
         <module name="InvalidJavadocPosition"/>
-        <!--<module name="JavadocBlockTagLocation">
-            <property name="tags" value="author, deprecated, exception, hidden, param, provides"/>
-            <property name="tags" value="return, see, serial, serialData, serialField, since, throws"/>
-            <property name="tags" value="uses, version"/>
-            <property name="tags" value="noinspection"/>
-        </module>-->
         <module name="JavadocContentLocation"/>
         <module name="JavadocMethod">
             <property name="accessModifiers" value="public"/>
             <property name="allowedAnnotations" value="Deprecated"/>
-            <!--<property name="tokens" value="CTOR_DEF"/>-->
             <property name="validateThrows" value="true"/>
         </module>
         <module name="JavadocParagraph"/>
@@ -46,11 +39,8 @@
             <property name="authorFormat" value="\S"/>
             <property name="allowMissingParamTags" value="true"/>
             <property name="allowUnknownTags" value="false"/>
-            <!--            <property name="tokens" value="INTERFACE_DEF, CLASS_DEF, ENUM_DEF, ANNOTATION_DEF"/>-->
         </module>
         <!-- agregar comentarios a las variables -->
-        <!--<module name="JavadocVariable"/>-->
-
         <module name="MissingJavadocMethod">
             <property name="allowMissingPropertyJavadoc" value="true"/>
             <property name="allowedAnnotations" value="Override,Inject,Provides"/>
@@ -61,7 +51,6 @@
         <!-- agregar comentarios a las clases -->
         <module name="MissingJavadocType">
             <property name="scope" value="public"/>
-            <!--<property name="tokens" value="INTERFACE_DEF, CLASS_DEF, ENUM_DEF, ANNOTATION_DEF"/>-->
         </module>
         <!-- Javadoc Comments - end -->
 

@@ -12,8 +12,17 @@ spec: # Definición específica del deployment
       labels:
         app: config-server
     spec: # Describe la configuración de los contenedores dentro del Pod.
+      automountServiceAccountToken: false  # Aquí se desactiva el token
       containers: # Una lista de contenedores que se ejecutarán en el Pod.
         - name: config-server # Asigna el nombre config-server al contenedor. Este nombre es una referencia dentro del Pod y ayuda a identificar el contenedor.
           image: config-server:1.0  # Define la imagen de contenedor que se usará. En este caso, es config-server:1.0, que debe reemplazarse con el nombre y la etiqueta de la imagen que tengas en tu registro (local o en la nube).
           ports: # Lista de puertos que el contenedor expone.
             - containerPort: 8888 # Define el puerto 8888 dentro del contenedor, que probablemente será el puerto en el que tu aplicación escucha solicitudes. Kubernetes usará este puerto para redirigir el tráfico hacia el contenedor.
+          resources: # Define los recursos que el contenedor puede usar.
+            # Aquí se especifican los recursos de memoria que el contenedor puede solicitar y los límites que no debe exceder.
+            # Esto es importante para la gestión de recursos en un clúster de Kubernetes, ya que ayuda a garantizar que los Pods no consuman más recursos de los que se les asignan.
+            # En este caso, se especifica que el contenedor solicita 256 MiB de memoria y tiene un límite máximo de 512 MiB.
+            requests:
+              memory: "256Mi" # Memoria reservada inicialmente (256 Megabytes)
+            limits:
+              memory: "512Mi" # Límite máximo de memoria (512 Megabytes)
