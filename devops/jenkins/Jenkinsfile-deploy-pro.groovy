@@ -17,7 +17,7 @@ pipeline {
         GIT_COMMITTER_NAME = 'josephmn'
         GIT_COMMITTER_EMAIL = 'josephcarlos.jcmn@gmail.com'
         NEW_VERSION = ''
-//        MAVEN_OPTS = "-Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG -Dmaven.slp.log.level=DEBUG"
+        // MAVEN_OPTS = "-Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG -Dmaven.slp.log.level=DEBUG"
     }
 
     stages {
@@ -112,12 +112,13 @@ pipeline {
                         git pull origin develop
                     """
 
-//                    echo "=========> Revisar esta del repositorio..."
-//                    bat """
-//                        git status
-//                        git remote -v
-//                        git config --list
-//                    """
+                    /*echo "=========> Revisar esta del repositorio..."
+                    bat """
+                        git status
+                        git remote -v
+                        git config --list
+                    """
+                     */
                     // mvn release:prepare -DreleaseVersion=1.1.0 -DdevelopmentVersion=1.1.1-SNAPSHOT -DautoVersionSubmodules=true -B
 
                     echo "=========> Ejecutando Maven Release Plugin: prepare..."
@@ -130,9 +131,10 @@ pipeline {
 
                     echo "=========> Ejecutando Maven Release Plugin: perform..."
                     bat """
-                        mvn release:perform -B \
-                        -Dusername=${GIT_COMMITTER_NAME} \
-                        -Dpassword=%GIT_CREDENTIALS%
+                        mvn release:perform \
+                        -Darguments="-DskipTests" \
+                        -DlocalCheckout=false \
+                        -B
                     """
                 }
             }
@@ -142,15 +144,12 @@ pipeline {
             steps {
                 echo "######################## : ======> EJECUTANDO BUILD APPLICATION MAVEN..."
                 // Usar 'bat' para ejecutar comandos en Windows, para Linux usar 'sh'
-//                bat """
-//                    git checkout ${RELEASE_TAG_NAME}
-//                """
                 bat """
-                    git checkout main
-                    git pull origin main
+                    git checkout ${RELEASE_TAG_NAME}
                 """
-
-                bat 'mvn clean install'
+                bat """
+                    mvn clean install
+                """
             }
         }
 
