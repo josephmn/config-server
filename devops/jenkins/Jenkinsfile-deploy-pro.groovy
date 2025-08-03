@@ -17,42 +17,10 @@ pipeline {
         GIT_COMMITTER_NAME = 'josephmn'
         GIT_COMMITTER_EMAIL = 'josephcarlos.jcmn@gmail.com'
         NEW_VERSION = ''
-        MAVEN_OPTS = '-Duser.timezone=UTC -Xmx1024m'
+//        MAVEN_OPTS = "-Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG -Dmaven.slp.log.level=DEBUG"
     }
 
     stages {
-        stage('Setup Git Configuration') {
-            steps {
-                script {
-                    echo "######################## : ======> CONFIGURANDO GIT..."
-
-                    bat """
-                        git config user.email "${GIT_COMMITTER_EMAIL}"
-                        git config user.name "${GIT_COMMITTER_NAME}"
-                        
-                        REM Configurar remote con token para HTTPS
-                        git remote set-url origin https://%GIT_CREDENTIALS%@github.com/josephmn/config-server.git
-                        
-                        REM Configurar Git para evitar problemas con CRLF
-                        git config core.autocrlf true
-                        git config core.longpaths true
-                        
-                        REM Configurar timeout para operaciones Git
-                        git config http.postBuffer 524288000
-                        git config http.timeout 300
-                    """
-
-                    // Verificar conexión
-                    echo "Verificando conexión con repositorio..."
-                    bat 'git remote -v'
-                    bat 'git status'
-
-                    // Probar conectividad
-                    bat 'git fetch origin --dry-run'
-                }
-            }
-        }
-
         stage('Compile Repository') {
             steps {
                 script {
@@ -133,35 +101,39 @@ pipeline {
                     bat """
                         git config user.email "${GIT_COMMITTER_EMAIL}"
                         git config user.name "${GIT_COMMITTER_NAME}"
-                        git config push.default simple
+
+                        REM Configurar remote con token para HTTPS
+                        git remote set-url origin https://%GIT_CREDENTIALS%@github.com/josephmn/config-server.git
                     """
 
                     echo "=========> Generar siguiente SNAPSHOT..."
                     bat """
-                        git checkout -b develop origin/develop
+                        git checkout develop
                         git pull origin develop
                     """
 
+//                    echo "=========> Revisar esta del repositorio..."
+//                    bat """
+//                        git status
+//                        git remote -v
+//                        git config --list
+//                    """
                     // mvn release:prepare -DreleaseVersion=1.1.0 -DdevelopmentVersion=1.1.1-SNAPSHOT -DautoVersionSubmodules=true -B
 
-                    echo "=========> Ejecutando Maven Release Plugin: prepare con timeout..."
-                    timeout(time: 10, unit: 'MINUTES') {
-                        bat """
-                            mvn release:prepare ^
-                                -DautoVersionSubmodules=true ^
-                                -Darguments="-DskipTests" ^
-                                -DpushChanges=true ^
-                                -B
-                        """
-                    }
-                    echo "=========> Ejecutando Maven Release Plugin: perform con timeout..."
-                    timeout(time: 15, unit: 'MINUTES') {
-                        bat """
-                            mvn release:perform ^
-                                -Darguments="-DskipTests" ^
-                                -B
-                        """
-                    }
+                    echo "=========> Ejecutando Maven Release Plugin: prepare..."
+                    bat """
+                        mvn release:prepare -B \
+                        -Dusername=${GIT_COMMITTER_NAME} \
+                        -Dpassword=%GIT_CREDENTIALS% \
+                        -DscmCommentPrefix="[maven-release-plugin]"
+                    """
+
+                    echo "=========> Ejecutando Maven Release Plugin: perform..."
+                    bat """
+                        mvn release:perform -B \
+                        -Dusername=${GIT_COMMITTER_NAME} \
+                        -Dpassword=%GIT_CREDENTIALS%
+                    """
                 }
             }
         }
@@ -170,8 +142,12 @@ pipeline {
             steps {
                 echo "######################## : ======> EJECUTANDO BUILD APPLICATION MAVEN..."
                 // Usar 'bat' para ejecutar comandos en Windows, para Linux usar 'sh'
+//                bat """
+//                    git checkout ${RELEASE_TAG_NAME}
+//                """
                 bat """
-                    git checkout ${RELEASE_TAG_NAME}
+                    git checkout main
+                    git pull origin main
                 """
 
                 bat 'mvn clean install'
@@ -259,16 +235,6 @@ pipeline {
     }
 
     post {
-        always {
-            // Limpiar archivos temporales de release
-            script {
-                bat """
-                    if exist release.properties del release.properties
-                    if exist pom.xml.releaseBackup del pom.xml.releaseBackup
-                    if exist version.txt del version.txt
-                """
-            }
-        }
         success {
             script {
                 if (params.NOTIFICATION) {
