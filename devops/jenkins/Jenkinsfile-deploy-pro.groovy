@@ -17,6 +17,7 @@ pipeline {
         GIT_COMMITTER_NAME = 'josephmn'
         GIT_COMMITTER_EMAIL = 'josephcarlos.jcmn@gmail.com'
         NEW_VERSION = ''
+        MAVEN_OPTS = '-Duser.timezone=UTC -Xmx1024m'
     }
 
     stages {
@@ -31,6 +32,14 @@ pipeline {
                         
                         REM Configurar remote con token para HTTPS
                         git remote set-url origin https://%GIT_CREDENTIALS%@github.com/josephmn/config-server.git
+                        
+                        REM Configurar Git para evitar problemas con CRLF
+                        git config core.autocrlf true
+                        git config core.longpaths true
+                        
+                        REM Configurar timeout para operaciones Git
+                        git config http.postBuffer 524288000
+                        git config http.timeout 300
                     """
 
                     // Verificar conexión
@@ -118,32 +127,118 @@ pipeline {
                 expression { params.NEXT_VERSION }
             }
             steps {
+                /*script {
+                    echo "🧪 PROBANDO PERMISOS DEL TOKEN ACTUAL"
+
+                    try {
+                        // Test 1: Verificar acceso al repo
+                        bat '''
+                            echo "=== Test 1: Repo Access ==="
+                            git ls-remote origin
+                        '''
+                        echo "✅ Acceso al repositorio: OK"
+
+                        // Test 2: Probar push en seco
+                        bat '''
+                            echo "=== Test 2: Push Test ==="
+                            git push origin develop --dry-run
+                        '''
+                        echo "✅ Permisos de push: OK"
+
+                        // Test 3: Probar creación de tag
+                        bat '''
+                            echo "=== Test 3: Tag Test ==="
+                            git tag test-tag-temp
+                            git push origin test-tag-temp --dry-run
+                            git tag -d test-tag-temp
+                        '''
+                        echo "✅ Permisos de tag: OK"
+
+                        echo "🎉 TU TOKEN ACTUAL TIENE PERMISOS SUFICIENTES"
+
+                    } catch (Exception e) {
+                        echo "❌ Error detectado: ${e.getMessage()}"
+                        echo "🔧 Necesitas actualizar los permisos del token"
+                    }
+                }*/
+                script {
+                    echo "🔍 VERIFICANDO RAMAS DISPONIBLES"
+
+                    // Ver ramas locales
+                    bat '''
+                        echo "=== Ramas Locales ==="
+                        git branch
+                    '''
+
+                    // Ver ramas remotas
+                    bat '''
+                        echo "=== Ramas Remotas ==="
+                        git branch -r
+                    '''
+
+                    // Ver todas las ramas
+                    bat '''
+                        echo "=== Todas las Ramas ==="
+                        git branch -a
+                    '''
+
+                    // Ver rama actual
+                    bat '''
+                        echo "=== Rama Actual ==="
+                        git branch --show-current
+                    '''
+                }
+            }
+
+            /*steps {
                 echo "######################## : ======> GENERANDO NUEVA VERSION SNAPSHOT..."
                 script {
                     echo "=========> Git config..."
                     bat """
                         git config user.email "${GIT_COMMITTER_EMAIL}"
                         git config user.name "${GIT_COMMITTER_NAME}"
+                        git config push.default simple
                     """
 
                     echo "=========> Generar siguiente SNAPSHOT..."
                     bat """
                         git checkout develop
+                        git pull origin develop
+                    """
+
+                    // Limpiar archivos de release anteriores
+                    echo "=========> Limpiando archivos de release anteriores..."
+                    bat """
+                        if exist release.properties del release.properties
+                        if exist pom.xml.releaseBackup del pom.xml.releaseBackup
                     """
 
                     // mvn release:prepare -DreleaseVersion=1.1.0 -DdevelopmentVersion=1.1.1-SNAPSHOT -DautoVersionSubmodules=true -B
 
-                    echo "=========> Ejecutando Maven Release Plugin: prepare..."
-                    bat """
-                        mvn release:prepare -DautoVersionSubmodules=true -B
-                    """
-
-                    echo "=========> Ejecutando Maven Release Plugin: perform..."
-                    bat """
-                        mvn release:perform -B
-                    """
+                    echo "=========> Ejecutando Maven Release Plugin: prepare con timeout..."
+                    timeout(time: 10, unit: 'MINUTES') {
+                        bat """
+                            mvn release:prepare ^
+                                -DautoVersionSubmodules=true ^
+                                -Darguments="-DskipTests" ^
+                                -DscmCommentPrefix="[jenkins-release] " ^
+                                -DpushChanges=true ^
+                                -DlocalCheckout=false ^
+                                -DpreparationGoals="clean verify" ^
+                                -B
+                        """
+                    }
+                    echo "=========> Ejecutando Maven Release Plugin: perform con timeout..."
+                    timeout(time: 15, unit: 'MINUTES') {
+                        bat """
+                            mvn release:perform ^
+                                -Darguments="-DskipTests" ^
+                                -DlocalCheckout=false ^
+                                -B
+                        """
+                    }
                 }
-            }
+            }*/
         }
 
         stage('Build Application with Maven') {
@@ -239,6 +334,16 @@ pipeline {
     }
 
     post {
+        always {
+            // Limpiar archivos temporales de release
+            script {
+                bat """
+                    if exist release.properties del release.properties
+                    if exist pom.xml.releaseBackup del pom.xml.releaseBackup
+                    if exist version.txt del version.txt
+                """
+            }
+        }
         success {
             script {
                 if (params.NOTIFICATION) {
