@@ -13,13 +13,37 @@ pipeline {
         CONTAINER_PORT = '8888'
         HOST_PORT = '8888'
         NETWORK = 'azure-net'
-        GIT_CREDENTIALS = credentials('PATH_Jenkins')
+        GIT_CREDENTIALS = credentials('github-token')
         GIT_COMMITTER_NAME = 'josephmn'
         GIT_COMMITTER_EMAIL = 'josephcarlos.jcmn@gmail.com'
         NEW_VERSION = ''
     }
 
     stages {
+        stage('Setup Git Configuration') {
+            steps {
+                script {
+                    echo "######################## : ======> CONFIGURANDO GIT..."
+
+                    bat """
+                        git config user.email "${GIT_COMMITTER_EMAIL}"
+                        git config user.name "${GIT_COMMITTER_NAME}"
+                        
+                        REM Configurar remote con token para HTTPS
+                        git remote set-url origin https://%GIT_CREDENTIALS%@github.com/josephmn/config-server.git
+                    """
+
+                    // Verificar conexión
+                    echo "Verificando conexión con repositorio..."
+                    bat 'git remote -v'
+                    bat 'git status'
+
+                    // Probar conectividad
+                    bat 'git fetch origin --dry-run'
+                }
+            }
+        }
+
         stage('Compile Repository') {
             steps {
                 script {

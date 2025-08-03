@@ -62,51 +62,49 @@ pipeline {
                 timeout(time: 3, unit: 'MINUTES') {
                     echo "######################## : ======> ELIMINANDO RAMA RELEASE..."
                     script {
-                        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                            // Obtener la versión en Windows usando un archivo temporal
-                            bat '''
-                                mvn help:evaluate -Dexpression=project.version -q -DforceStdout > version.txt
-                            '''
-                            def version = readFile('version.txt').trim()
-                            // Remover -SNAPSHOT si existe
-                            version = version.replaceAll("-SNAPSHOT", "")
-                            NEW_VERSION = version
+                        // Obtener la versión en Windows usando un archivo temporal
+                        bat '''
+                            mvn help:evaluate -Dexpression=project.version -q -DforceStdout > version.txt
+                        '''
+                        def version = readFile('version.txt').trim()
+                        // Remover -SNAPSHOT si existe
+                        version = version.replaceAll("-SNAPSHOT", "")
+                        NEW_VERSION = version
 
-                            echo "======> Eliminando rama release: release/${version}..."
+                        echo "======> Eliminando rama release: release/${version}..."
 
-                            // Fetch para actualizar referencias
-                            bat 'git fetch --prune origin'
+                        // Fetch para actualizar referencias
+                        bat 'git fetch --prune origin'
 
-                            // Verificar si la rama local existe
-                            def localBranchExists = bat(
-                                    script: """git show-ref refs/heads/release/${version}""",
-                                    returnStatus: true
-                            ) == 0
+                        // Verificar si la rama local existe
+                        def localBranchExists = bat(
+                                script: """git show-ref refs/heads/release/${version}""",
+                                returnStatus: true
+                        ) == 0
 
-                            if (localBranchExists) {
-                                echo "=========> La rama existe en local, procediendo a eliminarla..."
-                                try {
-                                    bat "git branch -d release/${version}"
-                                    echo "=========> Rama local 'release/${version}' eliminada."
-                                } catch (Exception e) {
-                                    echo "=========> La rama local 'release/${version}' no existe."
-                                }
+                        if (localBranchExists) {
+                            echo "=========> La rama existe en local, procediendo a eliminarla..."
+                            try {
+                                bat "git branch -d release/${version}"
+                                echo "=========> Rama local 'release/${version}' eliminada."
+                            } catch (Exception e) {
+                                echo "=========> La rama local 'release/${version}' no existe."
                             }
+                        }
 
-                            // Verificar si la rama remota existe
-                            def branchExists = bat(
-                                    script: "git show-ref --verify --quiet refs/remotes/origin/release/${version}",
-                                    returnStatus: true
-                            ) == 0
+                        // Verificar si la rama remota existe
+                        def branchExists = bat(
+                                script: "git show-ref --verify --quiet refs/remotes/origin/release/${version}",
+                                returnStatus: true
+                        ) == 0
 
-                            if (branchExists) {
-                                echo "=========> La rama existe en remoto, procediendo a eliminarla..."
-                                try {
-                                    bat "git push origin --delete release/${version}"
-                                    echo "=========> Rama remota release/${version} eliminada"
-                                } catch (Exception e) {
-                                    echo "=========> Error eliminando rama remota: ${e.getMessage()}"
-                                }
+                        if (branchExists) {
+                            echo "=========> La rama existe en remoto, procediendo a eliminarla..."
+                            try {
+                                bat "git push origin --delete release/${version}"
+                                echo "=========> Rama remota release/${version} eliminada"
+                            } catch (Exception e) {
+                                echo "=========> Error eliminando rama remota: ${e.getMessage()}"
                             }
                         }
                     }
