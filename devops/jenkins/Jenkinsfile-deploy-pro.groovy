@@ -69,23 +69,13 @@ pipeline {
                         git pull origin main
                     """
 
-                    if (params.FORCE_MERGE) {
-                        echo "=========> Force merge de rama RC a rama main..."
-                        bat """
-                            git merge -X theirs ${RELEASE_TAG_NAME}
-                        """
-                        bat """
-                            git push origin main
-                        """
-                    } else {
-                        echo "=========> Merge de rama RC a rama main..."
-                        bat """
-                            git merge ${RELEASE_TAG_NAME}
-                        """
-                        bat """
-                            git push origin main
-                        """
-                    }
+                    echo "=========> Merge de rama RC a rama main..."
+                    bat """
+                        git merge -X theirs ${RELEASE_TAG_NAME}
+                    """
+                    bat """
+                        git push origin main
+                    """
                 }
             }
         }
@@ -112,14 +102,13 @@ pipeline {
                         git pull origin develop
                     """
 
-                    /*echo "=========> Revisar esta del repositorio..."
+                    /*echo "=========> Revisar el repositorio antes del prepare..."
                     bat """
                         git status
                         git remote -v
                         git config --list
                     """
                      */
-                    // mvn release:prepare -DreleaseVersion=1.1.0 -DdevelopmentVersion=1.1.1-SNAPSHOT -DautoVersionSubmodules=true -B
 
                     echo "=========> Ejecutando Maven Release Plugin: prepare..."
                     bat """
