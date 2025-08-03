@@ -8,10 +8,24 @@ RUN mvn package -DskipTests
 
 # Etapa final
 FROM openjdk:17-jdk-slim
+
+# --- Cambios clave de seguridad ---
+# 1. Crear un usuario sin privilegios (ej: 'javaapp') y asignarle permisos
+RUN useradd -m -u 1001 javaapp \
+    && mkdir -p /app \
+    && chown -R javaapp:javaapp /app
+
+# 2. Cambiar al usuario no-root
+USER javaapp
+
 WORKDIR /app
 ARG NAME_APP
 ARG JAR_VERSION
-COPY --from=build /app/target/${NAME_APP}-${JAR_VERSION}.jar app.jar
+
+# COPY --from=build /app/target/${NAME_APP}-${JAR_VERSION}.jar app.jar
+# 3. Copiar el JAR con permisos correctos (--chown)
+COPY --from=build --chown=javaapp:javaapp --chmod=755 /app/target/${NAME_APP}-${JAR_VERSION}.jar app.jar
+
 # Puerto de la aplicacion (8888), se recomienda que sea el mismo que se defina al ejecutar el contenedor en docker
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
