@@ -13,13 +13,37 @@ pipeline {
         CONTAINER_PORT = '8887'
         HOST_PORT = '8887'
         NETWORK = 'azure-net-cer'
-        GIT_CREDENTIALS = credentials('PATH_Jenkins')
+        GIT_CREDENTIALS = credentials('github-token')
         GIT_COMMITTER_NAME = 'josephmn'
         GIT_COMMITTER_EMAIL = 'josephcarlos.jcmn@gmail.com'
         NEW_VERSION = ''
     }
 
     stages {
+        stage('Setup Git Configuration') {
+            steps {
+                script {
+                    echo "######################## : ======> CONFIGURANDO GIT..."
+
+                    bat """
+                        git config user.email "${GIT_COMMITTER_EMAIL}"
+                        git config user.name "${GIT_COMMITTER_NAME}"
+                        
+                        REM Configurar remote con token para HTTPS
+                        git remote set-url origin https://%GIT_CREDENTIALS%@github.com/josephmn/config-server.git
+                    """
+
+                    // Verificar conexión
+                    echo "Verificando conexión con repositorio..."
+                    bat 'git remote -v'
+                    bat 'git status'
+
+                    // Probar conectividad
+                    bat 'git fetch origin --dry-run'
+                }
+            }
+        }
+
         stage('Compile Repository') {
             steps {
                 script {
@@ -35,45 +59,56 @@ pipeline {
 
         stage('Delete Release Branch') {
             steps {
-                echo "######################## : ======> ELIMINANDO RAMA RELEASE..."
-                script {
-                    // Obtener la versión en Windows usando un archivo temporal
-                    bat '''
-                        mvn help:evaluate -Dexpression=project.version -q -DforceStdout > version.txt
-                    '''
-                    def version = readFile('version.txt').trim()
-                    // Remover -SNAPSHOT si existe
-                    version = version.replaceAll("-SNAPSHOT", "")
-                    NEW_VERSION = version
+                timeout(time: 3, unit: 'MINUTES') {
+                    echo "######################## : ======> ELIMINANDO RAMA RELEASE..."
+                    script {
+                        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                            // Obtener la versión en Windows usando un archivo temporal
+                            bat '''
+                                mvn help:evaluate -Dexpression=project.version -q -DforceStdout > version.txt
+                            '''
+                            def version = readFile('version.txt').trim()
+                            // Remover -SNAPSHOT si existe
+                            version = version.replaceAll("-SNAPSHOT", "")
+                            NEW_VERSION = version
 
-                    echo "======> Eliminando rama release: release/${version}..."
+                            echo "======> Eliminando rama release: release/${version}..."
 
-                    // Verificar si la rama local existe
-                    def localBranchExists = bat(
-                            script: """git show-ref refs/heads/release/${version}""",
-                            returnStatus: true
-                    ) == 0
+                            // Fetch para actualizar referencias
+                            bat 'git fetch --prune origin'
 
-                    if (localBranchExists) {
-                        echo "=========> La rama existe en local, procediendo a eliminarla..."
-                        bat "git branch -d release/${version}"
-                        echo "=========> Rama local 'release/${version}' eliminada."
-                    } else {
-                        echo "=========> La rama local 'release/${version}' no existe."
-                    }
+                            // Verificar si la rama local existe
+                            def localBranchExists = bat(
+                                    script: """git show-ref refs/heads/release/${version}""",
+                                    returnStatus: true
+                            ) == 0
 
-                    // Verificar si la rama remota existe
-                    def branchExists = bat(
-                            script: "git show-ref --verify --quiet refs/remotes/origin/release/${version}",
-                            returnStatus: true
-                    ) == 0
+                            if (localBranchExists) {
+                                echo "=========> La rama existe en local, procediendo a eliminarla..."
+                                try {
+                                    bat "git branch -d release/${version}"
+                                    echo "=========> Rama local 'release/${version}' eliminada."
+                                } catch (Exception e) {
+                                    echo "=========> La rama local 'release/${version}' no existe."
+                                }
+                            }
 
-                    if (branchExists) {
-                        echo "=========> La rama existe en remoto, procediendo a eliminarla..."
-                        bat "git push origin --delete release/${version}"
-                        echo "=========> Rama remota release/${version} eliminada"
-                    } else {
-                        echo "=========> La rama remota 'release/${version}' no existe."
+                            // Verificar si la rama remota existe
+                            def branchExists = bat(
+                                    script: "git show-ref --verify --quiet refs/remotes/origin/release/${version}",
+                                    returnStatus: true
+                            ) == 0
+
+                            if (branchExists) {
+                                echo "=========> La rama existe en remoto, procediendo a eliminarla..."
+                                try {
+                                    bat "git push origin --delete release/${version}"
+                                    echo "=========> Rama remota release/${version} eliminada"
+                                } catch (Exception e) {
+                                    echo "=========> Error eliminando rama remota: ${e.getMessage()}"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -81,29 +116,32 @@ pipeline {
 
         stage('Create Release Branch') {
             steps {
-                echo "######################## : ======> CREANDO RAMA PARA LA RELEASE..."
-                script {
-                    bat """
-                        git config user.email "${GIT_COMMITTER_EMAIL}"
-                        git config user.name "${GIT_COMMITTER_NAME}"
+                timeout(time: 5, unit: 'MINUTES') {
+                    echo "######################## : ======> CREANDO RAMA PARA LA RELEASE..."
+                    script {
+                        bat """
+                            git config user.email "${GIT_COMMITTER_EMAIL}"
+                            git config user.name "${GIT_COMMITTER_NAME}"
+    
+                            echo "=========> Creando rama de release..."
+                            git checkout -b release/${NEW_VERSION}
+                            git push origin release/${NEW_VERSION}
+                        """
 
-                        echo "=========> Creando rama de release..."
-                        git checkout -b release/${NEW_VERSION}
-                        git push origin release/${NEW_VERSION}
-                    """
+                        bat """
+                            mvn versions:set -DnewVersion=${NEW_VERSION}
+                        """
 
-                    bat """
-                        mvn versions:set -DnewVersion=${NEW_VERSION}
-                    """
-                    bat """
-                        mvn versions:commit
-                    """
+                        bat """
+                            mvn versions:commit
+                        """
 
-                    bat """
-                        git add .
-                        git commit -m "RC version ${NEW_VERSION}"
-                        git push origin release/${NEW_VERSION}
-                    """
+                        bat """
+                            git add .
+                            git commit -m "RC version ${NEW_VERSION}"
+                            git push origin release/${NEW_VERSION}
+                        """
+                    }
                 }
             }
         }
@@ -140,33 +178,35 @@ pipeline {
 
         stage('Create Release Candidate') {
             steps {
-                echo "######################## : ======> GENERANDO RELEASE CANDIDATE (RC-${NEW_VERSION}-CERT-*)..."
-                script {
-                    bat """
-                        git config user.email "${GIT_COMMITTER_EMAIL}"
-                        git config user.name "${GIT_COMMITTER_NAME}"
+                timeout(time: 3, unit: 'MINUTES') {
+                    echo "######################## : ======> GENERANDO RELEASE CANDIDATE (RC-${NEW_VERSION}-CERT-*)..."
+                    script {
+                        bat """
+                            git config user.email "${GIT_COMMITTER_EMAIL}"
+                            git config user.name "${GIT_COMMITTER_NAME}"
+    
+                            echo "=========> Verificando cambios pendientes..."
+                            git status
+                        """
 
-                        echo "=========> Verificando cambios pendientes..."
-                        git status
-                    """
+                        bat """
+                            echo "=========> Cambiando a rama release/${NEW_VERSION}..."
+                            git checkout release/${NEW_VERSION}
+                        """
 
-                    bat """
-                        echo "=========> Cambiando a rama release/${NEW_VERSION}..."
-                        git checkout release/${NEW_VERSION}
-                    """
-
-                    bat """
-                        @echo off
-                        REM Obtener la fecha en formato YYYYMMDD
-                        for /f "tokens=2 delims==" %%a in ('wmic os get localdatetime /value ^| find "="') do set datetime=%%a
-                        set today=%datetime:~0,8%
-                        set time=%datetime:~8,4%
-                        set tagName=RC-${NEW_VERSION}-CERT-%today%%time%
-
-                        echo "=========> tagName: %tagName%"
-                        git tag %tagName%
-                        git push origin %tagName%
-                    """
+                        bat """
+                            @echo off
+                            REM Obtener la fecha en formato YYYYMMDD
+                            for /f "tokens=2 delims==" %%a in ('wmic os get localdatetime /value ^| find "="') do set datetime=%%a
+                            set today=%datetime:~0,8%
+                            set time=%datetime:~8,4%
+                            set tagName=RC-${NEW_VERSION}-CERT-%today%%time%
+    
+                            echo "=========> tagName: %tagName%"
+                            git tag %tagName%
+                            git push origin %tagName%
+                        """
+                    }
                 }
             }
         }
