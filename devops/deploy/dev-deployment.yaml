@@ -12,8 +12,14 @@ spec:
       labels:
         app: config-server
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: config-server
           image: config-server:1.0
           ports:
             - containerPort: 8888
+          resources:
+            requests:
+              memory: "256Mi"
+            limits:
+              memory: "512Mi"
