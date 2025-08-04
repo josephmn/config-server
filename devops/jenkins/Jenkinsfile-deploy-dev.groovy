@@ -14,6 +14,7 @@ pipeline {
         CONTAINER_PORT = '8886'
         HOST_PORT = '8886'
         NETWORK = 'azure-net-dev'
+        SONAR_TOKEN = credentials('sonar-token')
     }
 
     stages {
@@ -36,17 +37,15 @@ pipeline {
             }
             steps {
                 withSonarQubeEnv('sonar-server') {
-                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                        echo "######################## : ======> EJECUTANDO QA SONARQUBE..."
-                        bat """
-                            "${SCANNER_HOME}\\bin\\sonar-scanner" ^
-                            -Dsonar.url=http://localhost:9000/ ^
-                            -Dsonar.login=${SONAR_TOKEN} ^
-                            -Dsonar.projectName=config-server ^
-                            -Dsonar.java.binaries=. ^
-                            -Dsonar.projectKey=config-server
-                        """
-                    }
+                    echo "######################## : ======> EJECUTANDO QA SONARQUBE..."
+                    bat """
+                        "${SCANNER_HOME}\\bin\\sonar-scanner" ^
+                        -Dsonar.url=http://localhost:9000/ ^
+                        -Dsonar.login=%SONAR_TOKEN% ^
+                        -Dsonar.projectName=config-server ^
+                        -Dsonar.java.binaries=. ^
+                        -Dsonar.projectKey=config-server
+                    """
                 }
             }
         }
