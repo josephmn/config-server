@@ -4,6 +4,8 @@ spring:
   application:
     name: config-server
     version: "@project.version@"
+  banner:
+    location: classpath:banner/banner-${SPRING_PROFILES_ACTIVE:dev}.txt
   cloud:
     config:
       server:
