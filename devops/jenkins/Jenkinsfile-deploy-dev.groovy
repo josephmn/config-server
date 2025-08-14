@@ -68,7 +68,10 @@ pipeline {
             steps {
                 echo "######################## : ======> EJECUTANDO BUILD APPLICATION MAVEN..."
                 // Usar 'bat' para ejecutar comandos en Windows, para Linux usar 'sh'
-                bat 'mvn clean install'
+                bat """
+                    mvn clean install \
+                    -Dspring-boot.run.profiles=dev
+                """
             }
         }
 
@@ -84,7 +87,7 @@ pipeline {
                             returnStatus: true
                     )
                     if (networkExists != 0) {
-                        echo "=========> La red '${NETWORK}' no existe. Creándola..."
+                        echo "=========> La red '${NETWORK}' no existe. Creandola..."
                         bat "docker network create --attachable ${NETWORK}"
                     } else {
                         echo "=========> La red '${NETWORK}' ya existe. No es necesario crearla."
@@ -156,13 +159,14 @@ pipeline {
 //                    '''
                     def name = NAME_APP.tokenize('-')[0..-2].join('-')
                     bat """
-                        echo "=========> Construyendo nueva imagen con versión ${version}..."
+                        echo "=========> Construyendo nueva imagen con version ${version}..."
                         docker build --build-arg NAME_APP=${name} --build-arg JAR_VERSION=${version} -t ${NAME_APP}:${version} .
                     """
                     bat """
                         echo "=========> Desplegando el contenedor: ${NAME_APP}..."
                         docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ^
                         --env SERVER_PORT=${HOST_PORT} ^
+                        --env SPRING_PROFILES_ACTIVE=dev ^
                         ${NAME_APP}:${version}
                     """
                 }
