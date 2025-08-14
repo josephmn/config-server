@@ -69,10 +69,17 @@ pipeline {
                         git pull origin main
                     """
 
-                    echo "=========> Merge de rama RC a rama main..."
+                    echo "=========> Merge de rama RC a rama main con sobrescritura......"
                     bat """
-                        git merge -X theirs ${RELEASE_TAG_NAME}
+                        git merge -X theirs ${RELEASE_TAG_NAME} || (
+                            echo "Conflictos detectados. Sobrescribiendo con contenido de ${RELEASE_TAG_NAME}..."
+                            git checkout --theirs .
+                            git add .
+                            git commit -m "Merge ${RELEASE_TAG_NAME} into main con preferencia por theirs"
+                        )
                     """
+
+                    echo "=========> Push a rama main..."
                     bat """
                         git push origin main
                     """
