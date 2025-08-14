@@ -137,7 +137,8 @@ pipeline {
                     git checkout ${RELEASE_TAG_NAME}
                 """
                 bat """
-                    mvn clean install
+                    mvn clean install \
+                    -Dspring-boot.run.profiles=prod
                 """
             }
         }
@@ -215,6 +216,7 @@ pipeline {
                         echo "=========> Desplegando el contenedor: ${NAME_APP}..."
                         docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ^
                         --env SERVER_PORT=${HOST_PORT} ^
+                        --env SPRING_PROFILES_ACTIVE=prod ^
                         ${NAME_APP}:${NEW_VERSION}
                     """
                 }

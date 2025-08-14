@@ -68,7 +68,10 @@ pipeline {
             steps {
                 echo "######################## : ======> EJECUTANDO BUILD APPLICATION MAVEN..."
                 // Usar 'bat' para ejecutar comandos en Windows, para Linux usar 'sh'
-                bat 'mvn clean install'
+                bat """
+                    mvn clean install \
+                    -Dspring-boot.run.profiles=dev
+                """
             }
         }
 
@@ -163,6 +166,7 @@ pipeline {
                         echo "=========> Desplegando el contenedor: ${NAME_APP}..."
                         docker run -d --name ${NAME_APP} -p ${HOST_PORT}:${CONTAINER_PORT} --network=${NETWORK} ^
                         --env SERVER_PORT=${HOST_PORT} ^
+                        --env SPRING_PROFILES_ACTIVE=dev ^
                         ${NAME_APP}:${version}
                     """
                 }
